@@ -20,26 +20,3 @@ public class ApiResponse<T>
         return new ApiResponse<T> { Success = false, Message = message, Errors = errors };
     }
 }
-
-/// <summary>
-/// Paginated list response with pagination metadata.
-/// </summary>
-public class PaginatedResponse<T>
-{
-    public bool Success { get; set; }
-    public string Message { get; set; } = string.Empty;
-    public List<object>? Data { get; set; }
-    public PaginationMetadata? Pagination { get; set; }
-    public object? Errors { get; set; }
-}
-
-/// <summary>
-/// Pagination metadata included in list responses.
-/// </summary>
-public class PaginationMetadata
-{
-    public int Page { get; set; }
-    public int PageSize { get; set; }
-    public int TotalItems { get; set; }
-    public int TotalPages { get; set; }
-}
