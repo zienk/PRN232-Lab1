@@ -1,13 +1,16 @@
-using PRN232.LMS.Repositories.Common;
-using PRN232.LMS.Services.BusinessModels;
+using System.Threading.Tasks;
+using PRN232.LMS.Services.Models.Requests;
+using PRN232.LMS.Services.Models.Responses;
+using PRN232.LMS.Services.Models.Common;
 
-namespace PRN232.LMS.Services.Interfaces;
-
-public interface ISubjectService
+namespace PRN232.LMS.Services.Interfaces
 {
-    Task<SubjectModel?> GetByIdAsync(int id, string? expand = null);
-    Task<PagedResult<SubjectModel>> GetAllAsync(QueryParameters parameters);
-    Task<SubjectModel> CreateAsync(SubjectModel model);
-    Task<SubjectModel?> UpdateAsync(int id, SubjectModel model);
-    Task<bool> DeleteAsync(int id);
+    public interface ISubjectService
+    {
+        Task<PagedResponseModel<object>> GetSubjectsAsync(string? search, string? sort, int page, int size, string? fields, string? expand);
+        Task<ResponseModel<SubjectResponseModel>> GetSubjectByIdAsync(int id);
+        Task<ResponseModel<SubjectResponseModel>> CreateSubjectAsync(SubjectRequestModel model);
+        Task<ResponseModel<SubjectResponseModel>> UpdateSubjectAsync(int id, SubjectRequestModel model);
+        Task<ResponseModel<bool>> DeleteSubjectAsync(int id);
+    }
 }
