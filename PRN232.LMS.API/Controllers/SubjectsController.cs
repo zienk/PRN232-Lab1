@@ -15,7 +15,7 @@ namespace PRN232.LMS.API.Controllers;
 [ApiVersion("2.0")]
 [Route("api/v{version:apiVersion}/subjects")]
 [Produces("application/json", "application/xml")]
-[Authorize]
+[Authorize(Policy = "Lab2Authenticated")]
 public class SubjectsController : ControllerBase
 {
     private readonly ISubjectService _subjectService;
@@ -61,7 +61,7 @@ public class SubjectsController : ControllerBase
     [HttpPost]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<SubjectResponseModel>), StatusCodes.Status201Created)]
     public async Task<IActionResult> Create(
         [FromBody] SubjectRequestModel model,
@@ -81,7 +81,7 @@ public class SubjectsController : ControllerBase
     [HttpPut("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<SubjectResponseModel>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Update(
         [FromRoute] int id,
@@ -97,7 +97,7 @@ public class SubjectsController : ControllerBase
     [HttpDelete("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Delete(
         [FromRoute] int id,

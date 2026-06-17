@@ -12,4 +12,7 @@ public interface IAuthService
 
     // Làm mới access token bằng refresh token
     Task<ResponseModel<AuthResponseModel>> RefreshTokenAsync(RefreshTokenRequest request);
+
+    // Thu hồi refresh token khi user logout hoặc muốn vô hiệu hóa phiên đăng nhập
+    Task<ResponseModel<bool>> RevokeTokenAsync(RefreshTokenRequest request);
 }

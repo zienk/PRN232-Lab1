@@ -17,7 +17,7 @@ namespace PRN232.LMS.API.Controllers;
 // Route với version: /api/v1/students hoặc /api/v2/students
 [Route("api/v{version:apiVersion}/students")]
 [Produces("application/json", "application/xml")] // Content Negotiation: hỗ trợ JSON và XML
-[Authorize] // Toàn bộ controller yêu cầu đăng nhập
+[Authorize(Policy = "Lab2Authenticated")] // Version 2 yêu cầu đăng nhập, version 1 mở như Lab 1
 public class StudentsController : ControllerBase
 {
     private readonly IStudentService _studentService;
@@ -79,8 +79,8 @@ public class StudentsController : ControllerBase
     [HttpPost]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    // [Authorize(Roles = "Admin")]: chỉ Admin mới được tạo sinh viên
-    [Authorize(Roles = "Admin")]
+    // [Authorize(Policy = "Lab2Admin")]: chỉ Admin mới được tạo sinh viên
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<StudentResponseModel>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -119,7 +119,7 @@ public class StudentsController : ControllerBase
     [HttpPut("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<StudentResponseModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -153,7 +153,7 @@ public class StudentsController : ControllerBase
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
     // Đây là admin-only endpoint được yêu cầu bởi Lab 2
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

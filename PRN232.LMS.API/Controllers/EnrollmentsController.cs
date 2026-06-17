@@ -15,7 +15,7 @@ namespace PRN232.LMS.API.Controllers;
 [ApiVersion("2.0")]
 [Route("api/v{version:apiVersion}/enrollments")]
 [Produces("application/json", "application/xml")]
-[Authorize]
+[Authorize(Policy = "Lab2Authenticated")]
 public class EnrollmentsController : ControllerBase
 {
     private readonly IEnrollmentService _enrollmentService;
@@ -97,7 +97,7 @@ public class EnrollmentsController : ControllerBase
     [HttpDelete("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Delete(
         [FromRoute] int id,

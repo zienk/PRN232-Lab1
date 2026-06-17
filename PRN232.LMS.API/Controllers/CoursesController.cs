@@ -16,7 +16,7 @@ namespace PRN232.LMS.API.Controllers;
 [ApiVersion("2.0")]
 [Route("api/v{version:apiVersion}/courses")]
 [Produces("application/json", "application/xml")]
-[Authorize] // Yêu cầu đăng nhập
+[Authorize(Policy = "Lab2Authenticated")] // Version 2 yêu cầu đăng nhập, version 1 mở như Lab 1
 public class CoursesController : ControllerBase
 {
     private readonly ICourseService _courseService;
@@ -102,7 +102,7 @@ public class CoursesController : ControllerBase
     [HttpPost]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<CourseResponseModel>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(
@@ -124,7 +124,7 @@ public class CoursesController : ControllerBase
     [HttpPut("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<CourseResponseModel>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(
@@ -142,7 +142,7 @@ public class CoursesController : ControllerBase
     [HttpDelete("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(

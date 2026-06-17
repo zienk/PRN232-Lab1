@@ -14,7 +14,7 @@ using PRN232.LMS.Services.Models.Responses;
 namespace PRN232.LMS.Services.Implementations;
 
 // AuthService xử lý toàn bộ logic Authentication
-// Gồm: login, tạo JWT, refresh token
+// Gồm: login, tạo JWT, refresh token, revoke token
 public class AuthService : IAuthService
 {
     private readonly IUnitOfWork _unitOfWork;
@@ -137,6 +137,26 @@ public class AuthService : IAuthService
         };
 
         return ResponseModel<AuthResponseModel>.SuccessResponse(response, "Làm mới token thành công");
+    }
+
+    // Thu hồi refresh token để client không thể dùng lại token đó
+    public async Task<ResponseModel<bool>> RevokeTokenAsync(RefreshTokenRequest request)
+    {
+        var storedToken = await _unitOfWork.RefreshTokens.GetByTokenAsync(request.RefreshToken);
+
+        if (storedToken == null)
+        {
+            return ResponseModel<bool>.ErrorResponse("Refresh token không hợp lệ");
+        }
+
+        if (storedToken.IsRevoked)
+        {
+            return ResponseModel<bool>.SuccessResponse(true, "Refresh token đã được thu hồi trước đó");
+        }
+
+        await _unitOfWork.RefreshTokens.RevokeAsync(request.RefreshToken);
+
+        return ResponseModel<bool>.SuccessResponse(true, "Thu hồi refresh token thành công");
     }
 
     // Hàm private tạo JWT access token

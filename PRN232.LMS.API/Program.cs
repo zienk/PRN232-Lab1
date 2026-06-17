@@ -100,8 +100,20 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Authorization (dùng với [Authorize] và [Authorize(Roles = "Admin")])
-builder.Services.AddAuthorization();
+// Authorization: chỉ version 2 (Lab 2) mới yêu cầu JWT/role.
+// Version 1 giữ đúng tinh thần Lab 1: REST API không bắt authentication.
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Lab2Authenticated", policy =>
+        policy.RequireAssertion(context =>
+            !IsLab2Request(context.Resource) ||
+            context.User.Identity?.IsAuthenticated == true));
+
+    options.AddPolicy("Lab2Admin", policy =>
+        policy.RequireAssertion(context =>
+            !IsLab2Request(context.Resource) ||
+            (context.User.Identity?.IsAuthenticated == true && context.User.IsInRole("Admin"))));
+});
 
 // ============================================================
 // 4. API VERSIONING - Hỗ trợ /api/v1/... và /api/v2/...
@@ -168,17 +180,17 @@ builder.Services.AddSwaggerGen(c =>
     // Swagger doc cho version 1
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "LMS API - Learning Management System",
+        Title = "LMS API - Lab 1 REST API",
         Version = "v1",
-        Description = "PRN232 Lab 2 - ASP.NET Core RESTful API với JWT Authentication"
+        Description = "PRN232 Lab 1 - RESTful API, 3-layer architecture, query features, Swagger, Docker"
     });
 
     // Swagger doc cho version 2
     c.SwaggerDoc("v2", new OpenApiInfo
     {
-        Title = "LMS API - Learning Management System",
+        Title = "LMS API - Lab 2 Advanced REST API & Security",
         Version = "v2",
-        Description = "PRN232 Lab 2 - Version 2 với các tính năng nâng cao"
+        Description = "PRN232 Lab 2 - Content negotiation, validation, middleware, JWT, authorization, refresh token"
     });
 
     // Cấu hình JWT Authentication trong Swagger
@@ -193,12 +205,20 @@ builder.Services.AddSwaggerGen(c =>
     });
 
     // Áp dụng JWT security requirement cho tất cả endpoints
-    c.AddSecurityRequirement(openApiDocument => new OpenApiSecurityRequirement
+    c.AddSecurityRequirement(openApiDocument =>
     {
+        if (!string.Equals(openApiDocument.Info?.Version, "v2", StringComparison.OrdinalIgnoreCase))
+        {
+            return new OpenApiSecurityRequirement();
+        }
+
+        return new OpenApiSecurityRequirement
+        {
         {
             new OpenApiSecuritySchemeReference("Bearer", openApiDocument, null),
             []
         }
+        };
     });
 });
 
@@ -245,3 +265,16 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static bool IsLab2Request(object? resource)
+{
+    if (resource is not HttpContext httpContext)
+    {
+        return false;
+    }
+
+    var version = httpContext.Request.RouteValues["version"]?.ToString();
+    return string.Equals(version, "2", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(version, "2.0", StringComparison.OrdinalIgnoreCase) ||
+           string.Equals(version, "v2", StringComparison.OrdinalIgnoreCase);
+}

@@ -30,7 +30,15 @@ Các yêu cầu chính đã được tích hợp:
 - Custom middleware.
 - JWT authentication, authorization, role-based authorization.
 - Refresh token flow.
+- Revoke refresh token khi logout hoặc muốn vô hiệu hóa phiên đăng nhập.
 - BCrypt password hashing.
+
+Quy ước version trong project:
+
+| Version | Ý nghĩa | Authentication |
+|---|---|---|
+| `v1` | Lab 1 - REST API nền tảng | Không bắt JWT |
+| `v2` | Lab 2 - Advanced REST API & Security | Bắt JWT cho resource APIs, có role Admin |
 
 ## 2. Tài Khoản Demo
 
@@ -44,8 +52,15 @@ Hai tài khoản mặc định được seed vào database bằng migration:
 Endpoint đăng nhập:
 
 ```http
-POST /api/v1/auth/login
-POST /api/auth/login
+POST /api/v2/auth/login
+```
+
+Các endpoint auth của Lab 2:
+
+```http
+POST /api/v2/auth/login
+POST /api/v2/auth/refresh-token
+POST /api/v2/auth/revoke
 ```
 
 Body mẫu:
@@ -57,7 +72,7 @@ Body mẫu:
 }
 ```
 
-Sau khi login, copy `accessToken`, bấm nút **Authorize** trên Swagger và nhập:
+Sau khi login, copy `accessToken`, bấm nút **Authorize** trên Swagger v2 và nhập:
 
 ```text
 Bearer <accessToken>
@@ -290,7 +305,7 @@ Các resource chính:
 /api/v1/subjects
 /api/v1/courses
 /api/v1/enrollments
-/api/v1/auth
+/api/v2/auth
 ```
 
 Nested resource:
@@ -481,18 +496,17 @@ Project hỗ trợ:
 /api/v2/students
 ```
 
-Cấu hình version reader:
+Cấu hình version reader trong code có thể đọc:
 
 - URL segment: `/api/v1/...`
 - Query string: `?api-version=1.0`
 - Header: `X-API-Version`
 
-Ví dụ:
+Tuy nhiên project đang expose public route theo URL segment để Swagger rõ ràng và không bị duplicate endpoint:
 
 ```http
 GET /api/v1/students
 GET /api/v2/students
-GET /api/students?api-version=1.0
 ```
 
 Trong controller:
@@ -594,31 +608,37 @@ Jwt__RefreshTokenExpirationDays: 7
 
 ## 17. Authorization
 
-Controller dữ liệu chính được bảo vệ bằng:
+Controller dữ liệu chính dùng policy có điều kiện theo version:
 
 ```csharp
-[Authorize]
+[Authorize(Policy = "Lab2Authenticated")]
 ```
 
 Các thao tác admin-only dùng:
 
 ```csharp
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = "Lab2Admin")]
 ```
+
+Ý nghĩa:
+
+- `/api/v1/...`: policy cho qua, đúng Lab 1 không bắt JWT.
+- `/api/v2/...`: policy yêu cầu JWT; endpoint admin-only yêu cầu role `Admin`.
 
 Demo phân quyền:
 
 1. Login bằng `admin / Admin@123`.
-2. Gọi `POST /api/v1/students`: thành công nếu body hợp lệ.
+2. Gọi `POST /api/v2/students`: thành công nếu body hợp lệ.
 3. Login bằng `user1 / User@123`.
 4. Gọi cùng endpoint admin-only: nhận `403 Forbidden`.
 
-## 18. Refresh Token Flow
+## 18. Refresh Token Và Revoke Token
 
 Endpoint:
 
 ```http
-POST /api/v1/auth/refresh-token
+POST /api/v2/auth/refresh-token
+POST /api/v2/auth/revoke
 ```
 
 Body:
@@ -641,6 +661,21 @@ Client gửi refresh token
 ```
 
 Refresh token được lưu trong bảng `RefreshToken`.
+
+Revoke token dùng khi client logout hoặc muốn vô hiệu hóa một phiên đăng nhập:
+
+```text
+Client gửi refresh token
+  -> API tìm token trong DB
+  -> Nếu token tồn tại và chưa revoke thì đánh dấu IsRevoked = true
+  -> Token đó không thể dùng lại ở endpoint refresh-token
+```
+
+Endpoint revoke được thiết kế idempotent:
+
+- Token không tồn tại: trả `401 Unauthorized`.
+- Token đã revoke trước đó: trả `200 OK` để logout gọi lại không bị lỗi giả.
+- Token hợp lệ: revoke thành công và trả `200 OK`.
 
 ## 19. Swagger/OpenAPI
 
@@ -760,7 +795,7 @@ Nên demo theo thứ tự sau:
 
 1. Chạy `docker compose up --build`.
 2. Mở Swagger ở `http://localhost:5000`.
-3. Gọi `POST /api/v1/auth/login` bằng `admin / Admin@123`.
+3. Gọi `POST /api/v2/auth/login` bằng `admin / Admin@123`.
 4. Copy access token.
 5. Bấm **Authorize** và nhập `Bearer <token>`.
 6. Gọi `GET /api/v1/students?page=1&size=10`.
@@ -769,9 +804,10 @@ Nên demo theo thứ tự sau:
 9. Gọi nested endpoint `GET /api/v1/courses/1/students`.
 10. Gửi header `Accept: application/xml` để demo content negotiation.
 11. Gửi header `X-Request-Id: demo-001` để demo header binding.
-12. Gọi `POST /api/v1/students` bằng admin để demo role Admin.
+12. Gọi `POST /api/v2/students` bằng admin để demo role Admin.
 13. Login `user1 / User@123`, thử gọi endpoint admin-only để thấy `403 Forbidden`.
-14. Gọi `POST /api/v1/auth/refresh-token` để demo refresh token.
+14. Gọi `POST /api/v2/auth/refresh-token` để demo refresh token.
+15. Gọi `POST /api/v2/auth/revoke`, sau đó dùng lại refresh token cũ để thấy API trả `401 Unauthorized`.
 
 ## 23. Checklist Lab 1
 
@@ -817,9 +853,10 @@ Nên demo theo thứ tự sau:
 | Login API | Đã có |
 | JWT access token | Đã có |
 | Refresh token | Đã có |
+| Revoke refresh token | Đã có |
 | BCrypt password hashing | Đã có |
-| `[Authorize]` protected API | Đã có |
-| `[Authorize(Roles = "Admin")]` | Đã có |
+| `Lab2Authenticated` protected API policy | Đã có |
+| `Lab2Admin` role-based authorization policy | Đã có |
 | Swagger JWT Authorize button | Đã có |
 | JWT secret qua Docker env | Đã có |
 
