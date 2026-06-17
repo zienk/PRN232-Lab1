@@ -24,7 +24,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
     {
         IQueryable<T> query = _dbSet;
         query = ApplyExpansion(query, expand);
-        
+
         // Tự động tìm thuộc tính ID của thực thể bằng Reflection
         var keyProperty = typeof(T).GetProperties()
             .FirstOrDefault(p => p.Name.EndsWith("Id") && p.Name.Length > 2)
@@ -168,7 +168,7 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
             var trimmed = expansion.Trim();
             // Đưa ký tự đầu lên chữ hoa PascalCase để khớp với thuộc tính liên kết trong EF Core
             var navigationName = char.ToUpper(trimmed[0]) + trimmed[1..];
-            
+
             var navProperty = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .FirstOrDefault(p => p.Name.Equals(navigationName, StringComparison.OrdinalIgnoreCase));
 

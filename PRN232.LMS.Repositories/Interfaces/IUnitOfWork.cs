@@ -12,6 +12,10 @@ public interface IUnitOfWork : IDisposable
     IStudentRepository Students { get; }
     IEnrollmentRepository Enrollments { get; }
 
+    // Repository mới cho Lab 2: Authentication
+    IUserRepository Users { get; }
+    IRefreshTokenRepository RefreshTokens { get; }
+
     /// <summary>
     /// Persists all changes made through the repositories in a single transaction.
     /// </summary>

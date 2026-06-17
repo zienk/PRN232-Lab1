@@ -19,6 +19,10 @@ public class UnitOfWork : IUnitOfWork
     private IStudentRepository? _students;
     private IEnrollmentRepository? _enrollments;
 
+    // Fields mới cho Lab 2
+    private IUserRepository? _users;
+    private IRefreshTokenRepository? _refreshTokens;
+
     public UnitOfWork(LmsDbContext context)
     {
         _context = context;
@@ -38,6 +42,13 @@ public class UnitOfWork : IUnitOfWork
 
     public IEnrollmentRepository Enrollments =>
         _enrollments ??= new EnrollmentRepository(_context);
+
+    // Properties mới cho Lab 2: khởi tạo lazy (chỉ tạo khi cần dùng)
+    public IUserRepository Users =>
+        _users ??= new UserRepository(_context);
+
+    public IRefreshTokenRepository RefreshTokens =>
+        _refreshTokens ??= new RefreshTokenRepository(_context);
 
     public async Task<int> SaveChangesAsync()
     {

@@ -13,6 +13,10 @@ public class LmsDbContext : DbContext
     public DbSet<Student> Students => Set<Student>();
     public DbSet<Enrollment> Enrollments => Set<Enrollment>();
 
+    // Bảng mới cho Lab 2: Authentication
+    public DbSet<User> Users => Set<User>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -42,12 +46,27 @@ public class LmsDbContext : DbContext
             .HasForeignKey(e => e.CourseId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Cấu hình relationship User <-> RefreshToken
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne(r => r.User)
+            .WithMany(u => u.RefreshTokens)
+            .HasForeignKey(r => r.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Username phải unique
+        modelBuilder.Entity<User>()
+            .HasIndex(u => u.Username)
+            .IsUnique();
+
         // Seed Data
         SeedData(modelBuilder);
     }
 
     private static void SeedData(ModelBuilder modelBuilder)
     {
+        const string adminPasswordHash = "$2a$12$abcdefghijklmnopqrstuuyL2cqPNhpFm4U3fhPfhbSbT5aQIs.By";
+        const string userPasswordHash = "$2a$12$uvwxyzabcdefghijklmnoeDciegpla8M/oYYD97NH/wSb4zDTJUi6";
+
         // 5 Semesters
         var semesters = new List<Semester>();
         var semesterNames = new[] { "Fall 2024", "Spring 2025", "Summer 2025", "Fall 2025", "Spring 2026" };
@@ -162,5 +181,30 @@ public class LmsDbContext : DbContext
             });
         }
         modelBuilder.Entity<Enrollment>().HasData(enrollments);
+
+        // Seed 2 users mặc định:
+        // - admin / Admin@123 (Role: Admin)
+        // - user1 / User@123  (Role: User)
+        // Password được hash bằng BCrypt để bảo mật
+        var users = new List<User>
+        {
+            new User
+            {
+                UserId = 1,
+                Username = "admin",
+                // Hash password "Admin@123" bằng BCrypt (work factor = 12)
+                PasswordHash = adminPasswordHash,
+                Role = "Admin"
+            },
+            new User
+            {
+                UserId = 2,
+                Username = "user1",
+                // Hash password "User@123" bằng BCrypt
+                PasswordHash = userPasswordHash,
+                Role = "User"
+            }
+        };
+        modelBuilder.Entity<User>().HasData(users);
     }
 }
