@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using PRN232.LMS.API.Middleware;
+using PRN232.LMS.API.Swagger;
 using PRN232.LMS.Repositories.Data;
 using PRN232.LMS.Repositories.Implementations;
 using PRN232.LMS.Repositories.Interfaces;
@@ -182,7 +183,11 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "LMS API - Lab 1 REST API",
         Version = "v1",
-        Description = "PRN232 Lab 1 - RESTful API, 3-layer architecture, query features, Swagger, Docker"
+        Description = """
+        PRN232 Lab 1 - RESTful API nền tảng.
+
+        Version v1 không bắt JWT để tập trung vào resource design, CRUD, search/sort/paging, field selection, expansion, content negotiation và Docker.
+        """
     });
 
     // Swagger doc cho version 2
@@ -190,36 +195,29 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "LMS API - Lab 2 Advanced REST API & Security",
         Version = "v2",
-        Description = "PRN232 Lab 2 - Content negotiation, validation, middleware, JWT, authorization, refresh token"
+        Description = """
+        PRN232 Lab 2 - Advanced REST API & Security.
+
+        Version v2 bật JWT authentication và role-based authorization.
+        Cách demo nhanh: login ở /api/v2/auth/login, copy accessToken, bấm Authorize và chỉ dán token, không nhập thêm chữ Bearer.
+        Dùng user1 gọi endpoint Admin-only để thấy 403 Forbidden.
+        """
     });
 
     // Cấu hình JWT Authentication trong Swagger
-    // Thêm nút "Authorize" để nhập Bearer token
+    // Type Http + scheme bearer giúp Swagger tự thêm prefix "Bearer".
+    // Khi demo chỉ cần dán accessToken, không gõ thêm chữ Bearer.
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header. Nhập: Bearer {token}\n\nVí dụ: Bearer eyJhbGciOiJIUzI1NiIs...",
-        Name = "Authorization",        // Tên header
-        In = ParameterLocation.Header, // Vị trí: trong header
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Description = "Chỉ dán accessToken lấy từ API login. Swagger sẽ tự gửi header Authorization: Bearer <token>.",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
 
-    // Áp dụng JWT security requirement cho tất cả endpoints
-    c.AddSecurityRequirement(openApiDocument =>
-    {
-        if (!string.Equals(openApiDocument.Info?.Version, "v2", StringComparison.OrdinalIgnoreCase))
-        {
-            return new OpenApiSecurityRequirement();
-        }
-
-        return new OpenApiSecurityRequirement
-        {
-        {
-            new OpenApiSecuritySchemeReference("Bearer", openApiDocument, null),
-            []
-        }
-        };
-    });
+    c.OperationFilter<SwaggerOperationNotesFilter>();
 });
 
 // ============================================================

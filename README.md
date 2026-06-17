@@ -1,109 +1,126 @@
 # PRN232 LMS REST API
 
-Tài liệu này hệ thống hóa nội dung Lab 1 và Lab 2 của môn PRN232 thông qua project **Learning Management System REST API**. Mục tiêu không chỉ là chạy được bài lab, mà còn hiểu rõ vì sao từng phần được thiết kế như vậy để có thể demo, bảo vệ bài và ôn tập sau này.
+Tài liệu này là phần ghi chú học tập và hướng dẫn demo cho project **Learning Management System REST API** của môn PRN232. Project gộp nội dung **Lab 1 - REST API nền tảng** và **Lab 2 - Advanced REST API & Security** vào một hệ thống có kiến trúc rõ ràng, chạy được local, chạy được Docker, có Swagger để demo và có README đủ chi tiết để ôn tập lại sau này.
 
-## 1. Tổng Quan Project
+Điểm quan trọng nhất của project: không chỉ "làm cho chạy", mà phải hiểu vì sao ngoài thực tế người ta cần REST, versioning, JWT, refresh token, middleware, validation, Docker và layered architecture.
 
-Project xây dựng một RESTful API cho hệ thống quản lý học tập đơn giản gồm:
+<a id="table-of-contents"></a>
+## Mục Lục
 
-- Semester: học kỳ.
-- Subject: môn học.
-- Course: lớp học/phần học cụ thể trong một học kỳ.
-- Student: sinh viên.
-- Enrollment: đăng ký học của sinh viên vào course.
-- User: tài khoản đăng nhập hệ thống.
-- RefreshToken: refresh token dùng để cấp lại access token.
+- [1. Project Này Giải Quyết Gì?](#1-project-purpose)
+- [2. Cách Nhớ Tổng Quan](#2-mental-model)
+- [3. Tech Stack](#3-tech-stack)
+- [4. Cấu Trúc Solution](#4-solution-structure)
+- [5. Kiến Trúc 3 Lớp](#5-layered-architecture)
+- [6. Database Và Migration](#6-database-migration)
+- [7. API Versioning: v1 Là Lab 1, v2 Là Lab 2](#7-api-versioning)
+- [8. Authentication: Login, Refresh, Revoke](#8-authentication)
+- [9. Authorization: User Làm Gì, Admin Làm Gì?](#9-authorization)
+- [10. REST API Features Của Lab 1](#10-rest-features)
+- [11. Lab 2 Features](#11-lab2-features)
+- [12. Swagger Documentation](#12-swagger)
+- [13. Flow Demo Có Giải Thích](#13-demo-flow)
+- [14. Chạy Local](#14-run-local)
+- [15. Chạy Docker](#15-run-docker)
+- [16. Code Quality Và Checklist Trước Khi Nộp](#16-quality-checklist)
+- [17. Troubleshooting](#17-troubleshooting)
+- [18. Tóm Tắt Kiến Thức Cần Nhớ](#18-summary)
 
-Các yêu cầu chính đã được tích hợp:
+<a id="1-project-purpose"></a>
+## 1. Project Này Giải Quyết Gì?
 
-- Kiến trúc 3 lớp: API, Services, Repositories.
-- Entity Model, Business Model, Request Model, Response Model.
-- CRUD RESTful API.
-- Search, sort, paging, field selection, expansion.
-- Response format nhất quán.
-- Swagger/OpenAPI.
-- Docker Compose cho API và SQL Server.
-- Content negotiation JSON/XML.
-- Model binding: route, query, body, header.
-- Data validation bằng Data Annotations và FluentValidation.
-- API versioning.
-- Custom middleware.
-- JWT authentication, authorization, role-based authorization.
-- Refresh token flow.
-- Revoke refresh token khi logout hoặc muốn vô hiệu hóa phiên đăng nhập.
-- BCrypt password hashing.
+Project mô phỏng một hệ thống quản lý học tập đơn giản. Trong hệ thống có:
 
-Quy ước version trong project:
+| Thành phần | Ý nghĩa thực tế |
+|---|---|
+| Semester | Học kỳ |
+| Subject | Môn học, ví dụ PRN232 |
+| Course | Lớp học cụ thể của một môn trong một học kỳ |
+| Student | Sinh viên |
+| Enrollment | Việc sinh viên đăng ký vào một course |
+| User | Tài khoản dùng để đăng nhập API |
+| RefreshToken | Token dài hạn dùng để cấp lại access token |
 
-| Version | Ý nghĩa | Authentication |
-|---|---|---|
-| `v1` | Lab 1 - REST API nền tảng | Không bắt JWT |
-| `v2` | Lab 2 - Advanced REST API & Security | Bắt JWT cho resource APIs, có role Admin |
+Nói ngắn gọn, project trả lời câu hỏi: nếu cần xây một backend Web API có CRUD, query, phân quyền, Swagger, Docker và database migration thì nên tổ chức code như thế nào để dễ đọc, dễ demo và dễ mở rộng?
 
-## 2. Tài Khoản Demo
+<a id="2-mental-model"></a>
+## 2. Cách Nhớ Tổng Quan
 
-Hai tài khoản mặc định được seed vào database bằng migration:
+Một API backend dễ bị học theo kiểu nhớ chay: controller là gì, service là gì, token là gì, middleware là gì. Cách dễ hiểu hơn là gắn nó với một câu chuyện quen thuộc.
 
-| Username | Password | Role | Mục đích demo |
-|---|---|---|---|
-| `admin` | `Admin@123` | `Admin` | Có quyền gọi các API admin-only như create/update/delete |
-| `user1` | `User@123` | `User` | Có quyền đọc dữ liệu, nhưng bị chặn ở API yêu cầu Admin |
+Hãy tưởng tượng hệ thống như một trường học:
 
-Endpoint đăng nhập:
+| Khái niệm trong code | Cách hiểu bằng đời thường |
+|---|---|
+| Controller | Quầy tiếp nhận hồ sơ. Ai đến cũng gặp quầy trước. |
+| Service | Phòng nghiệp vụ. Nơi quyết định logic đúng sai. |
+| Repository | Kho hồ sơ. Chỉ lo lấy và lưu dữ liệu. |
+| DbContext | Người giữ sổ database, biết bảng nào liên quan bảng nào. |
+| Request Model | Mẫu đơn người dùng nộp vào. |
+| Response Model | Phiếu trả kết quả đã được chuẩn hóa. |
+| Validation | Bảo vệ cổng vào, kiểm tra đơn có thiếu/sai không. |
+| Middleware | Các trạm kiểm soát trên đường request đi vào API. |
+| JWT Access Token | Vé vào cổng có hạn ngắn. |
+| Refresh Token | Phiếu đổi vé mới, sống lâu hơn access token. |
+| Role User/Admin | Thẻ sinh viên và thẻ quản trị viên. |
+| X-Request-Id | Mã vận đơn hoặc mã biên nhận để trace một request. |
 
-```http
-POST /api/v2/auth/login
-```
+Cách nhớ `401` và `403`:
 
-Các endpoint auth của Lab 2:
+- `401 Unauthorized`: giống như chưa trình thẻ, thẻ hết hạn hoặc thẻ giả. API chưa xác định được bạn là ai.
+- `403 Forbidden`: giống như bạn có thẻ thật, nhưng thẻ sinh viên không được vào phòng dành cho admin.
 
-```http
-POST /api/v2/auth/login
-POST /api/v2/auth/refresh-token
-POST /api/v2/auth/revoke
-```
+Cách nhớ access token và refresh token:
 
-Body mẫu:
+- Access token giống vé vào cổng trong ngày: dùng để đi qua các cổng bảo vệ, nhưng sống ngắn để nếu lộ thì thiệt hại thấp.
+- Refresh token giống phiếu đổi vé: không dùng để vào lớp trực tiếp, chỉ dùng để xin vé access token mới.
+- Revoke refresh token giống xé phiếu đổi vé: từ lúc đó không thể đổi vé mới nữa.
 
-```json
-{
-  "username": "admin",
-  "password": "Admin@123"
-}
-```
+<a id="3-tech-stack"></a>
+## 3. Tech Stack
 
-Sau khi login, copy `accessToken`, bấm nút **Authorize** trên Swagger v2 và nhập:
+| Nhóm | Công nghệ |
+|---|---|
+| Runtime | .NET 10 |
+| Web framework | ASP.NET Core Web API |
+| Database | SQL Server |
+| ORM | Entity Framework Core |
+| Authentication | JWT Bearer |
+| Password hashing | BCrypt |
+| Validation | Data Annotations, FluentValidation |
+| API documentation | Swagger/OpenAPI, Swashbuckle |
+| Versioning | Asp.Versioning |
+| Containerization | Docker, Docker Compose |
 
-```text
-Bearer <accessToken>
-```
-
-## 3. Cấu Trúc Solution
+<a id="4-solution-structure"></a>
+## 4. Cấu Trúc Solution
 
 ```text
 PRN232.LMS.API
   Controllers
+  Extensions
   Middleware
+  Swagger
   Program.cs
   appsettings.json
 
 PRN232.LMS.Services
-  Interfaces
+  BusinessModels
+  Helpers
   Implementations
+  Interfaces
   Models
+    Common
     Requests
     Responses
-    Common
-  BusinessModels
   Validators
-  Helpers
 
 PRN232.LMS.Repositories
+  Common
   Data
   Entities
-  Interfaces
   Implementations
-  Common
+  Interfaces
   Migrations
 ```
 
@@ -111,21 +128,22 @@ Vai trò từng project:
 
 | Project | Vai trò |
 |---|---|
-| `PRN232.LMS.API` | Nhận HTTP request, routing, auth middleware, controller, Swagger |
-| `PRN232.LMS.Services` | Xử lý business logic, mapping, validation nghiệp vụ, JWT/auth flow |
-| `PRN232.LMS.Repositories` | Entity Framework Core, DbContext, repository, unit of work, migrations |
+| `PRN232.LMS.API` | HTTP layer: controller, routing, Swagger, middleware, auth pipeline |
+| `PRN232.LMS.Services` | Business layer: xử lý nghiệp vụ, validation logic, mapping response, JWT flow |
+| `PRN232.LMS.Repositories` | Data access layer: EF Core, DbContext, entity, repository, unit of work, migration |
 
-Nguyên tắc quan trọng:
+Nguyên tắc review code:
 
-- Controller không chứa business logic.
-- Repository không chứa business logic.
-- Service là nơi xử lý nghiệp vụ.
-- API không trả Entity trực tiếp ra client.
-- Repository không phụ thuộc Request/Response Model.
+- Controller không chứa business logic phức tạp.
+- Service không biết chi tiết HTTP status code.
+- Repository không biết request/response DTO.
+- Entity không được trả trực tiếp ra client.
+- Secret, connection string và JWT config phải lấy từ configuration/environment.
 
-## 4. Kiến Trúc 3 Lớp
+<a id="5-layered-architecture"></a>
+## 5. Kiến Trúc 3 Lớp
 
-Luồng xử lý cơ bản:
+Luồng request đi qua hệ thống:
 
 ```text
 Client
@@ -136,107 +154,32 @@ Client
   -> SQL Server
 ```
 
-Ví dụ với API tạo sinh viên:
+Ví dụ tạo sinh viên:
 
 ```text
-POST /api/v1/students
+POST /api/v2/students
   -> StudentsController.Create
   -> StudentService.CreateStudentAsync
   -> UnitOfWork.Students.CreateAsync
   -> LmsDbContext.SaveChangesAsync
 ```
 
-Lợi ích:
+Tại sao phải tách lớp?
 
-- Dễ test từng lớp riêng.
-- Dễ thay đổi database access mà không ảnh hưởng controller.
-- Dễ mở rộng business logic.
-- Tránh controller bị phình to.
-- Code dễ đọc hơn khi thầy hoặc tool review.
+Nếu nhét hết vào controller, controller sẽ giống một quầy tiếp nhận vừa nhận hồ sơ, vừa kiểm tra nghiệp vụ, vừa tự chạy xuống kho lục hồ sơ, vừa ghi sổ. Lúc hệ thống nhỏ thì vẫn chạy, nhưng khi sửa sẽ rất dễ vỡ. Tách lớp giúp mỗi phần chỉ làm đúng việc của nó.
 
-## 5. Bốn Loại Model Cần Nhớ
+| Nếu cần sửa | Nên sửa ở đâu |
+|---|---|
+| Đổi format response | API hoặc Service response model |
+| Đổi rule nghiệp vụ | Service |
+| Đổi cách query database | Repository |
+| Đổi cấu trúc bảng | Entity, DbContext, Migration |
+| Đổi security pipeline | Program.cs, AuthService, policy |
 
-| Model Type | Nằm ở đâu | Mục đích |
-|---|---|---|
-| Entity Model | `Repositories/Entities` | Mapping trực tiếp với database table |
-| Business Model | `Services/BusinessModels` | Biểu diễn dữ liệu phục vụ xử lý nghiệp vụ |
-| Request Model | `Services/Models/Requests` | Dữ liệu client gửi lên API |
-| Response Model | `Services/Models/Responses` | Dữ liệu API trả về client |
+<a id="6-database-migration"></a>
+## 6. Database Và Migration
 
-Ví dụ:
-
-- `Student` là Entity.
-- `StudentRequestModel` là input model khi create/update.
-- `StudentResponseModel` là output model trả về client.
-
-Không nên:
-
-```csharp
-return Ok(studentEntity);
-```
-
-Nên:
-
-```csharp
-return Ok(ResponseModel<StudentResponseModel>.SuccessResponse(response));
-```
-
-## 6. Database Design
-
-Các bảng chính từ Lab 1:
-
-```text
-Semester
-  SemesterId
-  SemesterName
-  StartDate
-  EndDate
-
-Subject
-  SubjectId
-  SubjectCode
-  SubjectName
-  Credit
-
-Course
-  CourseId
-  CourseName
-  SemesterId
-  SubjectId
-
-Student
-  StudentId
-  FullName
-  Email
-  DateOfBirth
-
-Enrollment
-  EnrollmentId
-  StudentId
-  CourseId
-  EnrollDate
-  Status
-```
-
-Các bảng bổ sung từ Lab 2:
-
-```text
-User
-  UserId
-  Username
-  PasswordHash
-  Role
-
-RefreshToken
-  Id
-  UserId
-  Token
-  ExpiresAt
-  CreatedAt
-  IsRevoked
-```
-
-Quan hệ chính:
+Các bảng chính:
 
 ```text
 Semester 1 - n Course
@@ -246,41 +189,225 @@ Course   1 - n Enrollment
 User     1 - n RefreshToken
 ```
 
-Seed data:
+Migration hiện tại gồm:
 
-- 5 semesters.
-- 10 subjects.
-- 20 courses.
-- 50 students.
-- 500 enrollments.
-- 2 users mặc định cho demo JWT.
+| Migration | Ý nghĩa |
+|---|---|
+| `DbLan1` | Tạo schema và seed data Lab 1 |
+| `AddAuthenticationTables` | Tạo bảng `User`, `RefreshToken`, seed tài khoản demo |
 
-## 7. Migration Sạch
+Tài khoản demo:
 
-Project hiện có migration nền từ Lab 1 và một migration auth rõ nghĩa:
+| Username | Password | Role | Dùng để demo |
+|---|---|---|---|
+| `admin` | `Admin@123` | `Admin` | Gọi được API đọc và API ghi/xóa trong v2 |
+| `user1` | `User@123` | `User` | Gọi được API đọc trong v2, bị `403` ở API Admin-only |
 
-```text
-DbLan1
-AddAuthenticationTables
+Lưu ý quan trọng về migration:
+
+- Không sinh dữ liệu random trong `HasData`.
+- Không dùng `DateTime.Now`, `Guid.NewGuid()` hoặc BCrypt random salt trực tiếp trong `HasData`.
+- Seed data nên là dữ liệu tĩnh để EF Core không báo pending model changes mỗi lần build/run.
+
+Kiểm tra model có lệch migration không:
+
+```powershell
+dotnet ef migrations has-pending-model-changes `
+  --project .\PRN232.LMS.Repositories\PRN232.LMS.Repositories.csproj `
+  --startup-project .\PRN232.LMS.API\PRN232.LMS.API.csproj `
+  --context LmsDbContext
 ```
 
-`AddAuthenticationTables` làm các việc:
+Kết quả tốt:
 
-- Tạo bảng `User`.
-- Tạo bảng `RefreshToken`.
-- Tạo unique index cho `User.Username`.
-- Tạo foreign key `RefreshToken.UserId -> User.UserId`.
-- Seed `admin` và `user1` bằng BCrypt hash cố định.
+```text
+No changes have been made to the model since the last migration.
+```
 
-Lưu ý quan trọng:
+<a id="7-api-versioning"></a>
+## 7. API Versioning: v1 Là Lab 1, v2 Là Lab 2
 
-- Không dùng `DateTime.Now`, `Guid.NewGuid()` hoặc BCrypt salt random trong `HasData`.
-- Seed data trong EF migration nên là dữ liệu tĩnh.
-- Nếu seed thay đổi mỗi lần chạy, EF Core có thể báo pending model changes khi `Database.Migrate()`.
+Project dùng URL segment versioning:
 
-## 8. RESTful API Design
+```http
+/api/v1/students
+/api/v2/students
+```
 
-Project dùng plural nouns cho resource:
+Quy ước:
+
+| Version | Ý nghĩa | Authentication |
+|---|---|---|
+| `v1` | Lab 1 - REST API nền tảng | Public, không bắt JWT |
+| `v2` | Lab 2 - Advanced REST API & Security | Bắt JWT ở resource APIs |
+
+Tại sao phải version API?
+
+Ngoài thực tế, API đã có client dùng rồi thì không thể sửa phá vỡ tùy tiện. Versioning giống như sách giáo trình có bản 1 và bản 2. Bản 1 vẫn để người đang học hoặc app cũ dùng, bản 2 thêm security hoặc behavior mới.
+
+Trong project:
+
+- `v1` giữ đúng tinh thần Lab 1: tập trung REST, query, response format, Docker, Swagger.
+- `v2` thêm JWT, role-based authorization, refresh token, revoke token.
+- Auth chỉ nằm ở `v2`: `/api/v2/auth/...`.
+- Swagger không còn hiển thị route xấu kiểu `/api/v{version}/...`.
+
+<a id="8-authentication"></a>
+## 8. Authentication: Login, Refresh, Revoke
+
+Authentication trả lời câu hỏi: bạn là ai?
+
+Auth endpoints:
+
+```http
+POST /api/v2/auth/login
+POST /api/v2/auth/refresh-token
+POST /api/v2/auth/revoke
+```
+
+### 8.1. Login
+
+Request:
+
+```json
+{
+  "username": "admin",
+  "password": "Admin@123"
+}
+```
+
+Response trả về:
+
+```json
+{
+  "success": true,
+  "message": "Đăng nhập thành công",
+  "data": {
+    "accessToken": "...",
+    "refreshToken": "...",
+    "expiresIn": 3600,
+    "username": "admin",
+    "role": "Admin"
+  }
+}
+```
+
+Password không lưu plain text. Database chỉ lưu BCrypt hash. Khi login, API dùng `BCrypt.Verify` để so sánh password người dùng nhập với hash trong database.
+
+### 8.2. Dùng Token Trong Swagger
+
+Trên Swagger v2:
+
+1. Gọi `POST /api/v2/auth/login`.
+2. Copy `data.accessToken`.
+3. Bấm nút **Authorize**.
+4. Chỉ dán token, không nhập thêm chữ `Bearer`.
+
+Swagger đã được cấu hình `http bearer`, nên nó tự gửi:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+Nếu dùng Postman hoặc curl thủ công thì vẫn phải tự set header theo chuẩn HTTP:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+### 8.3. Refresh Token
+
+Access token nên sống ngắn. Nếu access token sống quá lâu, token bị lộ thì người khác có thể dùng quá lâu. Refresh token giải quyết việc đó.
+
+Flow:
+
+```text
+Access token hết hạn
+  -> Client gửi refresh token
+  -> API kiểm tra token tồn tại, chưa revoke, chưa hết hạn
+  -> API revoke refresh token cũ
+  -> API cấp access token mới và refresh token mới
+```
+
+Request:
+
+```json
+{
+  "refreshToken": "<refresh-token>"
+}
+```
+
+### 8.4. Revoke Token
+
+Revoke dùng khi logout hoặc khi muốn vô hiệu hóa một phiên đăng nhập.
+
+Flow:
+
+```text
+Client gửi refresh token
+  -> API tìm token trong database
+  -> API đánh dấu IsRevoked = true
+  -> Token đó không thể dùng để refresh nữa
+```
+
+Endpoint revoke được thiết kế idempotent:
+
+| Tình huống | Response |
+|---|---|
+| Token hợp lệ | `200 OK` |
+| Token đã revoke trước đó | `200 OK` |
+| Token không tồn tại | `401 Unauthorized` |
+
+<a id="9-authorization"></a>
+## 9. Authorization: User Làm Gì, Admin Làm Gì?
+
+Authorization trả lời câu hỏi: bạn được phép làm gì?
+
+Cách nhớ:
+
+- Authentication giống bảo vệ hỏi "Bạn là ai?".
+- Authorization giống bảo vệ hỏi tiếp "Bạn có được vào phòng này không?".
+
+Permission matrix:
+
+| Nhóm endpoint | v1 | v2 User | v2 Admin |
+|---|---:|---:|---:|
+| `POST /api/v2/auth/login` | Không có | Public | Public |
+| `POST /api/v2/auth/refresh-token` | Không có | Public | Public |
+| `POST /api/v2/auth/revoke` | Không có | Public | Public |
+| `GET /api/v1/...` | Public | Không cần token | Không cần token |
+| `POST/PUT/DELETE /api/v1/...` | Public | Không cần token | Không cần token |
+| `GET /api/v2/students` | Không áp dụng | Được | Được |
+| `GET /api/v2/semesters` | Không áp dụng | Được | Được |
+| `GET /api/v2/subjects` | Không áp dụng | Được | Được |
+| `GET /api/v2/courses` | Không áp dụng | Được | Được |
+| `GET /api/v2/enrollments` | Không áp dụng | Được | Được |
+| `GET /api/v2/courses/{id}/students` | Không áp dụng | Được | Được |
+| `GET /api/v2/courses/{id}/enrollments` | Không áp dụng | Được | Được |
+| `GET /api/v2/admin/permission-check` | Không áp dụng | `403 Forbidden` | Được |
+| `POST/PUT/DELETE /api/v2/students` | Không áp dụng | `403 Forbidden` | Được |
+| `POST/PUT/DELETE /api/v2/semesters` | Không áp dụng | `403 Forbidden` | Được |
+| `POST/PUT/DELETE /api/v2/subjects` | Không áp dụng | `403 Forbidden` | Được |
+| `POST/PUT/DELETE /api/v2/courses` | Không áp dụng | `403 Forbidden` | Được |
+| `POST/PUT/DELETE /api/v2/enrollments` | Không áp dụng | `403 Forbidden` | Được |
+
+Policy trong code:
+
+| Policy | Ý nghĩa |
+|---|---|
+| `Lab2Authenticated` | v1 cho qua, v2 yêu cầu JWT hợp lệ |
+| `Lab2Admin` | v1 cho qua, v2 yêu cầu JWT hợp lệ và role Admin |
+
+Vì sao v1 vẫn cho qua dù controller có `[Authorize]`?
+
+Do policy được viết có điều kiện theo route version. Nếu request là v1, policy không bắt JWT. Nếu request là v2, policy mới kiểm tra user/role. Cách này giúp một controller phục vụ được cả Lab 1 và Lab 2 mà không duplicate endpoint.
+
+<a id="10-rest-features"></a>
+## 10. REST API Features Của Lab 1
+
+### 10.1. RESTful Resource
+
+Endpoint dùng danh từ số nhiều:
 
 ```http
 GET    /api/v1/students
@@ -297,59 +424,48 @@ Không dùng kiểu RPC:
 /api/createStudent
 ```
 
-Các resource chính:
+Cách nhớ: REST xem dữ liệu như tài nguyên. Client không gọi "hàm", client thao tác lên "resource".
+
+### 10.2. Search, Sort, Paging
+
+Ví dụ:
 
 ```http
-/api/v1/students
-/api/v1/semesters
-/api/v1/subjects
-/api/v1/courses
-/api/v1/enrollments
-/api/v2/auth
+GET /api/v1/students?search=nguyen&sort=fullName&page=1&size=10
 ```
-
-Nested resource:
-
-```http
-GET /api/v1/courses/{courseId}/students
-GET /api/v1/courses/{id}/enrollments
-```
-
-## 9. Query Features
-
-List API hỗ trợ các tính năng của Lab 1:
 
 | Feature | Query | Ví dụ |
 |---|---|---|
-| Search | `search` | `/api/v1/students?search=nguyen` |
-| Sort | `sort` | `/api/v1/students?sort=fullName` |
-| Desc sort | `-field` | `/api/v1/students?sort=-dateOfBirth` |
-| Paging | `page`, `size` | `/api/v1/students?page=2&size=10` |
-| Field selection | `fields` | `/api/v1/students?fields=studentId,fullName,email` |
-| Expansion | `expand` | `/api/v1/enrollments?expand=student,course` |
+| Search | `search` | `?search=nguyen` |
+| Sort tăng dần | `sort` | `?sort=fullName` |
+| Sort giảm dần | `-field` | `?sort=-dateOfBirth` |
+| Paging | `page`, `size` | `?page=2&size=10` |
 
-Ví dụ tổng hợp:
+Vì sao cần paging?
+
+Nếu database có 1 triệu sinh viên mà API trả hết một lần, server chậm, client nặng, network tốn. Paging giống xem danh sách sản phẩm trên Shopee: mỗi trang chỉ lấy một phần vừa đủ.
+
+### 10.3. Field Selection
 
 ```http
-GET /api/v1/enrollments?status=Active&sort=-enrollDate&page=1&size=20&fields=enrollmentId,status&expand=student,course
+GET /api/v1/students?fields=studentId,fullName,email
 ```
 
-Pagination metadata mẫu:
+Ý nghĩa: client chỉ lấy field cần dùng. Cách này giảm payload và làm response gọn hơn.
 
-```json
-{
-  "pagination": {
-    "page": 1,
-    "pageSize": 10,
-    "totalItems": 100,
-    "totalPages": 10
-  }
-}
+### 10.4. Expansion
+
+```http
+GET /api/v1/enrollments?expand=student,course
 ```
 
-## 10. Response Format Nhất Quán
+Ý nghĩa: bình thường enrollment chỉ cần thông tin đăng ký. Khi client cần thêm student/course liên quan thì dùng `expand`.
 
-Response thường có format:
+Cách nhớ: giống xem đơn hàng. Mặc định chỉ thấy mã đơn, khi bấm mở rộng mới thấy sản phẩm, địa chỉ, thanh toán.
+
+### 10.5. Response Format Nhất Quán
+
+Response thường:
 
 ```json
 {
@@ -360,7 +476,7 @@ Response thường có format:
 }
 ```
 
-Paged response có thêm metadata:
+Paged response:
 
 ```json
 {
@@ -377,180 +493,72 @@ Paged response có thêm metadata:
 }
 ```
 
-HTTP status code cần nhớ:
+<a id="11-lab2-features"></a>
+## 11. Lab 2 Features
 
-| Status | Ý nghĩa |
-|---|---|
-| `200 OK` | Request thành công |
-| `201 Created` | Tạo resource thành công |
-| `400 Bad Request` | Input không hợp lệ |
-| `401 Unauthorized` | Chưa đăng nhập hoặc token sai |
-| `403 Forbidden` | Đăng nhập rồi nhưng không đủ quyền |
-| `404 Not Found` | Không tìm thấy resource |
-| `406 Not Acceptable` | Client yêu cầu format không hỗ trợ |
-| `500 Internal Server Error` | Lỗi server |
+### 11.1. Content Negotiation
 
-## 11. Content Negotiation
-
-API hỗ trợ:
+API hỗ trợ JSON và XML:
 
 ```http
 Accept: application/json
 Accept: application/xml
 ```
 
-Cấu hình nằm trong `Program.cs`:
-
-```csharp
-options.RespectBrowserAcceptHeader = true;
-options.ReturnHttpNotAcceptable = true;
-```
-
-Và thêm XML formatter:
-
-```csharp
-.AddXmlSerializerFormatters();
-```
-
-Khi demo:
+Nếu client yêu cầu format không hỗ trợ, API trả:
 
 ```http
-GET /api/v1/students
-Accept: application/xml
-Authorization: Bearer <token>
+406 Not Acceptable
 ```
 
-Nếu client gửi format không hỗ trợ, API trả `406 Not Acceptable`.
+Ý nghĩa thực tế: cùng một endpoint nhưng client khác nhau có thể cần format khác nhau. Browser/app thường dùng JSON, một số hệ thống cũ có thể cần XML.
 
-## 12. Model Binding
+### 11.2. Model Binding
 
-Lab 2 yêu cầu thể hiện nhiều kiểu binding.
+Project demo nhiều kiểu binding:
 
-Route binding:
+| Binding | Ví dụ | Ý nghĩa |
+|---|---|---|
+| Route | `/students/{id}` | Lấy id từ URL |
+| Query | `?page=1&size=10` | Lấy filter/paging từ query string |
+| Body | JSON khi POST/PUT | Lấy object client gửi lên |
+| Header | `X-Request-Id` | Lấy metadata từ HTTP header |
 
-```csharp
-[HttpGet("{id:int}")]
-public async Task<IActionResult> GetById([FromRoute] int id)
-```
+### 11.3. X-Request-Id Để Làm Gì?
 
-Query binding:
-
-```csharp
-public async Task<IActionResult> Get(
-    [FromQuery] string? search,
-    [FromQuery] int page = 1,
-    [FromQuery] int size = 10)
-```
-
-Body binding:
-
-```csharp
-public async Task<IActionResult> Create([FromBody] StudentRequestModel model)
-```
-
-Header binding:
-
-```csharp
-[FromHeader(Name = "X-Request-Id")] string? requestId = null
-```
-
-Project có helper echo lại `X-Request-Id` trong response header để header binding không chỉ nằm cho có.
-
-## 13. Validation
-
-Project dùng hai lớp validation:
-
-- Data Annotations trên Request Model.
-- FluentValidation cho `StudentRequestModel`.
-
-Ví dụ Data Annotations:
-
-```csharp
-[Required]
-[StringLength(100)]
-[EmailAddress]
-public string Email { get; set; } = string.Empty;
-```
-
-Custom validation rule:
-
-```text
-StudentCode format: 2 chữ cái hoa + 5 chữ số
-Ví dụ: SE19886, CE18793
-```
-
-FluentValidation kiểm tra:
-
-- FullName không rỗng, độ dài hợp lệ.
-- Email đúng định dạng.
-- DateOfBirth hợp lệ, sinh viên tối thiểu 16 tuổi.
-- StudentCode đúng format FPTU.
-- PhoneNumber đúng ký tự cho phép.
-
-## 14. API Versioning
-
-Project hỗ trợ:
+Demo:
 
 ```http
-/api/v1/students
-/api/v2/students
+X-Request-Id: demo-001
 ```
 
-Cấu hình version reader trong code có thể đọc:
+API sẽ echo lại header này trong response.
 
-- URL segment: `/api/v1/...`
-- Query string: `?api-version=1.0`
-- Header: `X-API-Version`
+Ý nghĩa:
 
-Tuy nhiên project đang expose public route theo URL segment để Swagger rõ ràng và không bị duplicate endpoint:
+Khi production có nhiều request chạy cùng lúc, log server rất dễ rối. `X-Request-Id` giống mã vận đơn. Nếu client báo lỗi "request demo-001 bị fail", backend có thể tìm log theo đúng mã đó để điều tra. Trong lab, nó chứng minh bạn biết header binding và correlation id.
 
-```http
-GET /api/v1/students
-GET /api/v2/students
-```
+### 11.4. Validation
 
-Trong controller:
+Project dùng:
 
-```csharp
-[ApiVersion("1.0")]
-[ApiVersion("2.0")]
-[Route("api/v{version:apiVersion}/students")]
-```
+- Data Annotations cho rule cơ bản như required, email, string length.
+- FluentValidation cho rule mạnh hơn, ví dụ tuổi tối thiểu, format student code, phone number.
 
-## 15. Middleware
+Cách nhớ: validation là cổng bảo vệ dữ liệu. Dữ liệu bẩn càng đi sâu vào hệ thống thì càng khó sửa.
 
-Project có hai custom middleware.
+### 11.5. Middleware
 
-### 15.1. ExceptionHandlingMiddleware
+Middleware là các trạm xử lý request trước khi vào controller.
 
-Mục tiêu:
+Project có:
 
-- Bắt lỗi chưa xử lý toàn cục.
-- Trả response lỗi nhất quán.
-- Không expose stack trace hoặc chi tiết nội bộ cho client.
-- Log lỗi chi tiết ở server.
+| Middleware | Mục đích |
+|---|---|
+| `ExceptionHandlingMiddleware` | Bắt lỗi toàn cục, trả response lỗi nhất quán |
+| `RequestLoggingMiddleware` | Log method, path, status code, thời gian xử lý |
 
-Ví dụ response:
-
-```json
-{
-  "success": false,
-  "message": "Đã xảy ra lỗi nội bộ. Vui lòng thử lại sau.",
-  "errors": null
-}
-```
-
-### 15.2. RequestLoggingMiddleware
-
-Log các thông tin:
-
-- HTTP method.
-- Request path.
-- Trace identifier.
-- Response status code.
-- Execution time.
-
-Thứ tự middleware quan trọng:
+Thứ tự pipeline quan trọng:
 
 ```text
 Exception Handling
@@ -561,140 +569,18 @@ Authorization
 MapControllers
 ```
 
-Authentication phải đặt trước Authorization.
+Authentication phải chạy trước Authorization vì API phải biết bạn là ai trước khi kiểm tra bạn được làm gì.
 
-## 16. JWT Authentication
+<a id="12-swagger"></a>
+## 12. Swagger Documentation
 
-JWT flow:
-
-```text
-Client login bằng username/password
-  -> API kiểm tra user và BCrypt password hash
-  -> API tạo access token
-  -> API tạo refresh token và lưu DB
-  -> Client dùng access token gọi protected API
-```
-
-Access token chứa claims:
-
-- UserId.
-- Username.
-- Role.
-- JWT ID.
-
-Config JWT:
-
-```json
-{
-  "Jwt": {
-    "SecretKey": "PRN232-LMS-API-Super-Secret-Key-For-JWT-2026",
-    "Issuer": "LmsApi",
-    "Audience": "LmsApiUsers",
-    "AccessTokenExpirationMinutes": 60,
-    "RefreshTokenExpirationDays": 7
-  }
-}
-```
-
-Trong Docker, JWT config được truyền bằng environment variables:
-
-```yaml
-Jwt__SecretKey: ...
-Jwt__Issuer: LmsApi
-Jwt__Audience: LmsApiUsers
-Jwt__AccessTokenExpirationMinutes: 60
-Jwt__RefreshTokenExpirationDays: 7
-```
-
-## 17. Authorization
-
-Controller dữ liệu chính dùng policy có điều kiện theo version:
-
-```csharp
-[Authorize(Policy = "Lab2Authenticated")]
-```
-
-Các thao tác admin-only dùng:
-
-```csharp
-[Authorize(Policy = "Lab2Admin")]
-```
-
-Ý nghĩa:
-
-- `/api/v1/...`: policy cho qua, đúng Lab 1 không bắt JWT.
-- `/api/v2/...`: policy yêu cầu JWT; endpoint admin-only yêu cầu role `Admin`.
-
-Demo phân quyền:
-
-1. Login bằng `admin / Admin@123`.
-2. Gọi `POST /api/v2/students`: thành công nếu body hợp lệ.
-3. Login bằng `user1 / User@123`.
-4. Gọi cùng endpoint admin-only: nhận `403 Forbidden`.
-
-## 18. Refresh Token Và Revoke Token
-
-Endpoint:
-
-```http
-POST /api/v2/auth/refresh-token
-POST /api/v2/auth/revoke
-```
-
-Body:
-
-```json
-{
-  "refreshToken": "<refresh-token>"
-}
-```
-
-Flow:
-
-```text
-Client gửi refresh token
-  -> API tìm token trong DB
-  -> Kiểm tra token tồn tại, chưa revoke, chưa hết hạn
-  -> Revoke token cũ
-  -> Tạo access token mới
-  -> Tạo refresh token mới
-```
-
-Refresh token được lưu trong bảng `RefreshToken`.
-
-Revoke token dùng khi client logout hoặc muốn vô hiệu hóa một phiên đăng nhập:
-
-```text
-Client gửi refresh token
-  -> API tìm token trong DB
-  -> Nếu token tồn tại và chưa revoke thì đánh dấu IsRevoked = true
-  -> Token đó không thể dùng lại ở endpoint refresh-token
-```
-
-Endpoint revoke được thiết kế idempotent:
-
-- Token không tồn tại: trả `401 Unauthorized`.
-- Token đã revoke trước đó: trả `200 OK` để logout gọi lại không bị lỗi giả.
-- Token hợp lệ: revoke thành công và trả `200 OK`.
-
-## 19. Swagger/OpenAPI
-
-Swagger chạy tại root URL của API:
+Swagger chạy ở root URL:
 
 ```http
 http://localhost:5000
 ```
 
-Hoặc khi chạy local bằng profile khác, xem URL trong console/Visual Studio.
-
-Swagger hỗ trợ:
-
-- Xem endpoint.
-- Test request/response.
-- Xem status code.
-- Login lấy JWT.
-- Authorize bằng Bearer token.
-- Test protected API.
+Khi chạy local bằng Visual Studio hoặc `dotnet run`, xem URL cụ thể trong console.
 
 Swagger docs:
 
@@ -703,55 +589,60 @@ Swagger docs:
 /swagger/v2/swagger.json
 ```
 
-## 20. Docker
+Swagger hiện có:
 
-Project có:
+- Version `v1`: Lab 1, public endpoints.
+- Version `v2`: Lab 2, JWT và role.
+- Ghi chú tiếng Việt trên từng API.
+- Nút Authorize chỉ cần dán `accessToken`, không gõ thêm `Bearer`.
+- Endpoint Admin-only có note hướng dẫn dùng `user1` để test `403 Forbidden`.
 
-```text
-Dockerfile
-docker-compose.yml
+<a id="13-demo-flow"></a>
+## 13. Flow Demo Có Giải Thích
+
+Demo tốt không chỉ là bấm cho chạy. Mỗi bước nên trả lời được: "Bước này chứng minh kiến thức gì?"
+
+| Bước | Thao tác | Thấy được gì? | Bài học |
+|---|---|---|---|
+| 1 | Chạy API bằng Docker hoặc local | API start và tự apply migration | Backend cần môi trường lặp lại được |
+| 2 | Mở Swagger | Có v1 và v2 riêng | API versioning giúp không lẫn Lab 1/Lab 2 |
+| 3 | Gọi `GET /api/v1/students` không token | Trả `200 OK` | v1 là Lab 1 public, không bắt JWT |
+| 4 | Gọi `GET /api/v2/students` không token | Trả `401 Unauthorized` | v2 resource APIs yêu cầu authentication |
+| 5 | Login `admin / Admin@123` | Nhận access token và refresh token | Authentication: API xác định bạn là ai |
+| 6 | Authorize Swagger bằng access token | Không cần nhập `Bearer` | Swagger đã cấu hình HTTP bearer đúng chuẩn |
+| 7 | Gọi `GET /api/v2/students` bằng admin | Trả `200 OK` | Token hợp lệ thì qua authentication |
+| 8 | Gọi `POST /api/v2/students` bằng admin | Nếu body hợp lệ thì tạo được | Admin có quyền ghi dữ liệu |
+| 9 | Login `user1 / User@123` | Nhận token role User | Cùng là token nhưng role khác nhau |
+| 10 | Dùng user1 gọi `GET /api/v2/students` | Trả `200 OK` | User được đọc dữ liệu |
+| 11 | Dùng user1 gọi `GET /api/v2/admin/permission-check` | Trả `403 Forbidden` | Authorization chặn role không đủ quyền, test nhanh vì không cần body |
+| 12 | Gọi `POST /api/v2/auth/refresh-token` | Nhận token mới | Refresh token giúp cấp lại access token |
+| 13 | Gọi `POST /api/v2/auth/revoke` | Revoke thành công | Logout/vô hiệu hóa phiên đăng nhập |
+| 14 | Dùng lại refresh token cũ | Trả `401 Unauthorized` | Token đã revoke không còn dùng được |
+| 15 | Gửi `Accept: application/xml` | Response XML | Content negotiation |
+| 16 | Gửi `X-Request-Id: demo-001` | Response echo lại header | Header binding và correlation id |
+
+Body mẫu để tạo student khi demo Admin-only:
+
+```json
+{
+  "studentCode": "SE12345",
+  "fullName": "Nguyen Van Demo",
+  "email": "demo.student@example.com",
+  "dateOfBirth": "2003-01-15",
+  "phoneNumber": "0901234567"
+}
 ```
 
-Docker Compose chạy:
-
-- SQL Server 2022 container.
-- LMS API container.
-
-Chạy Docker:
-
-```powershell
-docker compose up --build
-```
-
-API sau khi chạy Docker:
+Nếu muốn test `403` nhanh, login bằng `user1`, authorize token user, rồi gọi:
 
 ```http
-http://localhost:5000
+GET /api/v2/admin/permission-check
 ```
 
-SQL Server:
+Nếu muốn test Admin-only bằng thao tác ghi dữ liệu thật, dùng `user1` gọi `POST /api/v2/students` hoặc các endpoint `POST/PUT/DELETE` ở v2.
 
-```text
-Server: localhost,1433
-User: sa
-Password: YourStrong@Passw0rd
-Database: LmsDb
-```
-
-Reset database container khi cần test lại từ đầu:
-
-```powershell
-docker compose down -v
-docker compose up --build
-```
-
-Lưu ý:
-
-- Phải bật Docker Desktop trước.
-- API trong container kết nối SQL Server bằng hostname `sqlserver`.
-- JWT secret trong Docker Compose được truyền bằng environment variables.
-
-## 21. Chạy Local Không Docker
+<a id="14-run-local"></a>
+## 14. Chạy Local
 
 Build solution:
 
@@ -759,7 +650,7 @@ Build solution:
 dotnet build .\PRN232.LMS.slnx
 ```
 
-Apply migration:
+Apply migration thủ công nếu cần:
 
 ```powershell
 dotnet ef database update `
@@ -774,173 +665,227 @@ Run API:
 dotnet run --project .\PRN232.LMS.API\PRN232.LMS.API.csproj
 ```
 
-Kiểm tra EF model có pending migration không:
-
-```powershell
-dotnet ef migrations has-pending-model-changes `
-  --project .\PRN232.LMS.Repositories\PRN232.LMS.Repositories.csproj `
-  --startup-project .\PRN232.LMS.API\PRN232.LMS.API.csproj `
-  --context LmsDbContext
-```
-
-Kết quả tốt:
+Local database config nằm trong:
 
 ```text
-No changes have been made to the model since the last migration.
+PRN232.LMS.API/appsettings.Development.json
 ```
 
-## 22. Demo Flow Cho Thầy
+Mặc định hiện tại:
 
-Nên demo theo thứ tự sau:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(local);Database=Lab1_LmsDb;User Id=sa;Password=12345;TrustServerCertificate=True"
+  }
+}
+```
 
-1. Chạy `docker compose up --build`.
-2. Mở Swagger ở `http://localhost:5000`.
-3. Gọi `POST /api/v2/auth/login` bằng `admin / Admin@123`.
-4. Copy access token.
-5. Bấm **Authorize** và nhập `Bearer <token>`.
-6. Gọi `GET /api/v1/students?page=1&size=10`.
-7. Gọi `GET /api/v1/students?search=nguyen&sort=fullName&fields=studentId,fullName,email`.
-8. Gọi `GET /api/v1/enrollments?expand=student,course`.
-9. Gọi nested endpoint `GET /api/v1/courses/1/students`.
-10. Gửi header `Accept: application/xml` để demo content negotiation.
-11. Gửi header `X-Request-Id: demo-001` để demo header binding.
-12. Gọi `POST /api/v2/students` bằng admin để demo role Admin.
-13. Login `user1 / User@123`, thử gọi endpoint admin-only để thấy `403 Forbidden`.
-14. Gọi `POST /api/v2/auth/refresh-token` để demo refresh token.
-15. Gọi `POST /api/v2/auth/revoke`, sau đó dùng lại refresh token cũ để thấy API trả `401 Unauthorized`.
+Nếu máy bạn dùng SQL Server khác, chỉ cần sửa connection string.
 
-## 23. Checklist Lab 1
+<a id="15-run-docker"></a>
+## 15. Chạy Docker
 
-| Yêu cầu | Trạng thái |
+Docker Compose chạy 2 service:
+
+| Service | Vai trò |
 |---|---|
-| 3-layer architecture | Đã có |
-| Entity, Business, Request, Response Model | Đã có |
-| RESTful endpoint dùng plural nouns | Đã có |
-| CRUD API | Đã có |
-| Get by id trả 404 khi không tồn tại | Đã có |
-| Search | Đã có |
-| Sort | Đã có |
-| Paging | Đã có |
-| Field selection | Đã có |
-| Expansion | Đã có |
-| Pagination metadata | Đã có |
-| Consistent response format | Đã có |
-| Swagger/OpenAPI | Đã có |
-| Dockerfile | Đã có |
-| docker-compose.yml | Đã có |
+| `sqlserver` | SQL Server 2022 |
+| `api` | ASP.NET Core API |
 
-## 24. Checklist Lab 2
-
-| Yêu cầu | Trạng thái |
-|---|---|
-| Reuse Lab 1 | Đã có |
-| Content negotiation JSON/XML | Đã có |
-| Return 406 for unsupported format | Đã cấu hình |
-| Route binding | Đã có |
-| Query binding | Đã có |
-| Body binding | Đã có |
-| Header binding `X-Request-Id` | Đã có |
-| Data Annotations | Đã có |
-| FluentValidation | Đã có |
-| Custom validation rule | Đã có |
-| Attribute routing | Đã có |
-| Route constraints | Đã có |
-| Nested resource endpoint | Đã có |
-| Named routes | Đã có |
-| API versioning | Đã có |
-| Global exception middleware | Đã có |
-| Request logging middleware | Đã có |
-| Login API | Đã có |
-| JWT access token | Đã có |
-| Refresh token | Đã có |
-| Revoke refresh token | Đã có |
-| BCrypt password hashing | Đã có |
-| `Lab2Authenticated` protected API policy | Đã có |
-| `Lab2Admin` role-based authorization policy | Đã có |
-| Swagger JWT Authorize button | Đã có |
-| JWT secret qua Docker env | Đã có |
-
-## 25. Ghi Nhớ Cho Code Review / SonarQube
-
-Các điểm nên giải thích khi bị hỏi:
-
-- Controller chỉ điều phối request/response, không chứa business logic.
-- Service xử lý nghiệp vụ và mapping sang response model.
-- Repository chỉ làm data access.
-- Entity không được return trực tiếp ra client.
-- Password không lưu plain text, chỉ lưu BCrypt hash.
-- JWT secret nên cấu hình bằng environment variables khi deploy.
-- Migration auth seed hash cố định, không sinh random trong `HasData`.
-- `X-Request-Id` được echo lại trong response header.
-- `CreatedAtRoute` có truyền `version` để Location header đúng với API versioning.
-- Exception middleware không trả stack trace cho client.
-- Docker Compose có healthcheck cho SQL Server trước khi API start.
-
-## 26. Lệnh Nhanh
-
-Build:
-
-```powershell
-dotnet build .\PRN232.LMS.slnx
-```
-
-Run local:
-
-```powershell
-dotnet run --project .\PRN232.LMS.API\PRN232.LMS.API.csproj
-```
-
-Run Docker:
+Chạy:
 
 ```powershell
 docker compose up --build
 ```
 
-Stop Docker:
+API:
 
-```powershell
-docker compose down
+```http
+http://localhost:5000
 ```
 
-Reset Docker database:
+SQL Server:
+
+```text
+Server: localhost,1433
+User: sa
+Password: YourStrong@Passw0rd
+Database: LmsDb
+```
+
+Reset database container:
 
 ```powershell
 docker compose down -v
 docker compose up --build
 ```
 
-Check pending migration:
+JWT config trong Docker được truyền bằng environment variables:
+
+```yaml
+Jwt__SecretKey: PRN232-LMS-API-Super-Secret-Key-For-JWT-2026
+Jwt__Issuer: LmsApi
+Jwt__Audience: LmsApiUsers
+Jwt__AccessTokenExpirationMinutes: 60
+Jwt__RefreshTokenExpirationDays: 7
+```
+
+Vì sao dùng environment variables?
+
+Ngoài thực tế không nên hard-code secret vào code. Docker/Kubernetes/CI thường truyền config qua environment để cùng một image có thể chạy ở nhiều môi trường: dev, staging, production.
+
+<a id="16-quality-checklist"></a>
+## 16. Code Quality Và Checklist Trước Khi Nộp
+
+Lệnh nên chạy trước khi push:
 
 ```powershell
+dotnet format .\PRN232.LMS.slnx --verify-no-changes --verbosity minimal
+dotnet build .\PRN232.LMS.slnx
 dotnet ef migrations has-pending-model-changes `
   --project .\PRN232.LMS.Repositories\PRN232.LMS.Repositories.csproj `
   --startup-project .\PRN232.LMS.API\PRN232.LMS.API.csproj `
   --context LmsDbContext
 ```
 
-## 27. Tóm Tắt Kiến Thức Cần Nắm
+Checklist Lab 1:
 
-Lab 1 tập trung vào nền tảng REST API:
+| Yêu cầu | Trạng thái |
+|---|---|
+| 3-layer architecture | Đã có |
+| Entity, Business, Request, Response Model | Đã có |
+| RESTful endpoints dùng plural nouns | Đã có |
+| CRUD API | Đã có |
+| Get by id trả 404 khi không tồn tại | Đã có |
+| Search, sort, paging | Đã có |
+| Field selection | Đã có |
+| Expansion | Đã có |
+| Pagination metadata | Đã có |
+| Consistent response format | Đã có |
+| Swagger/OpenAPI | Đã có |
+| Dockerfile, docker-compose.yml | Đã có |
 
-- Thiết kế resource.
+Checklist Lab 2:
+
+| Yêu cầu | Trạng thái |
+|---|---|
+| Reuse Lab 1 | Đã có |
+| Content negotiation JSON/XML | Đã có |
+| Return 406 for unsupported format | Đã cấu hình |
+| Route, query, body, header binding | Đã có |
+| Header binding `X-Request-Id` | Đã có |
+| Data Annotations | Đã có |
+| FluentValidation | Đã có |
+| Attribute routing và route constraints | Đã có |
+| Nested resource endpoint | Đã có |
+| Named routes | Đã có |
+| API versioning | Đã có |
+| Global exception middleware | Đã có |
+| Request logging middleware | Đã có |
+| JWT login | Đã có |
+| Refresh token | Đã có |
+| Revoke refresh token | Đã có |
+| BCrypt password hashing | Đã có |
+| Role-based authorization | Đã có |
+| GET Admin-only endpoint để test 403 nhanh | Đã có |
+| Swagger JWT Authorize button | Đã có |
+| Swagger ghi chú tiếng Việt | Đã có |
+
+Các điểm nên giải thích nếu thầy hỏi hoặc tool review code:
+
+- Controller chỉ điều phối request/response, không chứa business logic.
+- Service xử lý nghiệp vụ và mapping sang response model.
+- Repository chỉ làm data access.
+- Password không lưu plain text.
+- JWT secret nên lấy từ config/environment.
+- Refresh token được lưu DB để revoke được.
+- Access token không lưu DB vì JWT tự chứa claims và được validate bằng signature.
+- `401` khác `403`.
+- `X-Request-Id` giúp trace log.
+- Migration seed dùng dữ liệu tĩnh, không sinh random trong `HasData`.
+
+<a id="17-troubleshooting"></a>
+## 17. Troubleshooting
+
+### Swagger bắt nhập cả chữ Bearer
+
+Swagger đã được cấu hình để không cần nhập `Bearer`. Nếu vẫn thấy phải nhập `Bearer`, hãy rebuild và reload Swagger:
+
+```powershell
+dotnet build .\PRN232.LMS.slnx
+```
+
+Sau đó lấy token mới từ login và chỉ dán `accessToken`.
+
+### Gọi v2 bị 401
+
+Nguyên nhân thường gặp:
+
+- Chưa bấm Authorize trong Swagger.
+- Dán nhầm refresh token thay vì access token.
+- Token hết hạn.
+- JWT secret/issuer/audience không khớp môi trường đang chạy.
+
+### Gọi v2 bị 403
+
+Điều này thường là đúng khi bạn đang dùng `user1` gọi API Admin-only. Muốn thành công, login bằng:
+
+```text
+admin / Admin@123
+```
+
+### Docker không chạy
+
+Kiểm tra Docker Desktop đã bật chưa. Nếu gặp lỗi pipe như:
+
+```text
+open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified
+```
+
+thì Docker engine chưa chạy.
+
+### EF báo pending model changes
+
+Kiểm tra seed data trong `HasData`. Nếu dùng `DateTime.Now`, `Guid.NewGuid()` hoặc hash random thì EF sẽ tưởng model thay đổi liên tục.
+
+<a id="18-summary"></a>
+## 18. Tóm Tắt Kiến Thức Cần Nhớ
+
+Lab 1 là nền móng:
+
+- Thiết kế REST resource.
 - CRUD.
-- 3-layer architecture.
-- EF Core.
 - Query features.
 - Response format.
+- 3-layer architecture.
 - Swagger.
 - Docker cơ bản.
 
-Lab 2 nâng cấp API gần production hơn:
+Lab 2 là bước đưa API gần production hơn:
 
-- Security bằng JWT.
+- Authentication bằng JWT.
 - Authorization theo role.
-- Refresh token.
+- Refresh token và revoke token.
 - Validation mạnh hơn.
 - Middleware.
 - Versioning.
 - Content negotiation.
-- Header binding.
-- Docker config bằng environment variables.
+- Header binding và correlation id.
+- Config qua environment variables khi chạy Docker.
 
-Nếu hiểu được project này, bạn đã nắm được skeleton quan trọng để xây dựng một ASP.NET Core Web API có cấu trúc rõ ràng, dễ mở rộng và đủ tốt để tiếp tục học authentication, testing, logging, monitoring và CI/CD.
+Nếu chỉ nhớ endpoint thì rất nhanh quên. Nếu nhớ câu chuyện thì dễ hiểu hơn:
+
+```text
+Controller là quầy tiếp nhận.
+Service là phòng nghiệp vụ.
+Repository là kho hồ sơ.
+JWT access token là vé vào cổng.
+Refresh token là phiếu đổi vé mới.
+Revoke là xé phiếu đổi vé.
+401 là chưa qua cổng xác thực.
+403 là có thẻ nhưng không đủ quyền.
+X-Request-Id là mã vận đơn để lần theo request trong log.
+```
+
+Đó là bộ khung quan trọng để tiếp tục học testing, logging nâng cao, clean architecture, CI/CD, cloud deployment và monitoring.

@@ -63,6 +63,7 @@ public class EnrollmentsController : ControllerBase
     [HttpPost]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<EnrollmentResponseModel>), StatusCodes.Status201Created)]
     public async Task<IActionResult> Create(
         [FromBody] EnrollmentRequestModel model,
@@ -82,6 +83,7 @@ public class EnrollmentsController : ControllerBase
     [HttpPut("{id:int}")]
     [MapToApiVersion("1.0")]
     [MapToApiVersion("2.0")]
+    [Authorize(Policy = "Lab2Admin")]
     [ProducesResponseType(typeof(ResponseModel<EnrollmentResponseModel>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Update(
         [FromRoute] int id,
