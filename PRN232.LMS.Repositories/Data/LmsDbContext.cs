@@ -65,7 +65,7 @@ public class LmsDbContext : DbContext
     private static void SeedData(ModelBuilder modelBuilder)
     {
         const string adminPasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm";
-        const string userPasswordHash = "$2a$12$uvwxyzabcdefghijklmnoeDciegpla8M/oYYD97NH/wSb4zDTJUi6";
+        const string userPasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm";
 
         // 5 Semesters
         var semesters = new List<Semester>();
@@ -184,7 +184,7 @@ public class LmsDbContext : DbContext
 
         // Seed 2 users mặc định:
         // - admin / 123456 (Role: Admin)
-        // - user1 / User@123  (Role: User)
+        // - user / 123456  (Role: User)
         // Password được hash bằng BCrypt để bảo mật
         var users = new List<User>
         {
@@ -199,8 +199,8 @@ public class LmsDbContext : DbContext
             new User
             {
                 UserId = 2,
-                Username = "user1",
-                // Hash password "User@123" bằng BCrypt
+                Username = "user",
+                // Hash password "123456" bằng BCrypt
                 PasswordHash = userPasswordHash,
                 Role = "User"
             }

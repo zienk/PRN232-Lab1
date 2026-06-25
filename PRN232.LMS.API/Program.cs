@@ -196,7 +196,7 @@ builder.Services.AddSwaggerGen(c =>
 
         Version v2 bật JWT authentication và role-based authorization.
         Cách demo nhanh: login ở /api/v2/auth/login, copy accessToken, bấm Authorize và chỉ dán token, không nhập thêm chữ Bearer.
-        Dùng user1 gọi endpoint Admin-only để thấy 403 Forbidden.
+        Dùng user gọi endpoint Admin-only để thấy 403 Forbidden.
         """
     });
 
@@ -263,23 +263,39 @@ app.Run();
 
 static async Task EnsureDefaultUsersAsync(LmsDbContext db)
 {
-    const string adminPasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm";
+    const string defaultPasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm";
 
-    var admin = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
-    if (admin == null)
+    await EnsureUserAsync(db, "admin", defaultPasswordHash, "Admin");
+    await EnsureUserAsync(db, "user", defaultPasswordHash, "User", "user1");
+    await db.SaveChangesAsync();
+}
+
+static async Task EnsureUserAsync(
+    LmsDbContext db,
+    string username,
+    string passwordHash,
+    string role,
+    string? previousUsername = null)
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
+    if (user == null && previousUsername != null)
+    {
+        user = await db.Users.FirstOrDefaultAsync(u => u.Username == previousUsername);
+    }
+
+    if (user == null)
     {
         db.Users.Add(new PRN232.LMS.Repositories.Entities.User
         {
-            Username = "admin",
-            PasswordHash = adminPasswordHash,
-            Role = "Admin"
+            Username = username,
+            PasswordHash = passwordHash,
+            Role = role
         });
     }
     else
     {
-        admin.PasswordHash = adminPasswordHash;
-        admin.Role = "Admin";
+        user.Username = username;
+        user.PasswordHash = passwordHash;
+        user.Role = role;
     }
-
-    await db.SaveChangesAsync();
 }

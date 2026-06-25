@@ -30,7 +30,7 @@ public class AuthController : ControllerBase
     /// <remarks>
     /// Tài khoản mặc định:
     /// - Admin: username=admin, password=123456
-    /// - User: username=user1, password=User@123
+    /// - User: username=user, password=123456
     /// </remarks>
     [HttpPost("login")]
     [ProducesResponseType(typeof(ResponseModel<AuthResponseModel>), StatusCodes.Status200OK)]

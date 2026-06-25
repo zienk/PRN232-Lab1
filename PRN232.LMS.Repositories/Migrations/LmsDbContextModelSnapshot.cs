@@ -4835,9 +4835,9 @@ namespace PRN232.LMS.Repositories.Migrations
                         new
                         {
                             UserId = 2,
-                            PasswordHash = "$2a$12$uvwxyzabcdefghijklmnoeDciegpla8M/oYYD97NH/wSb4zDTJUi6",
+                            PasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm",
                             Role = "User",
-                            Username = "user1"
+                            Username = "user"
                         });
                 });
 

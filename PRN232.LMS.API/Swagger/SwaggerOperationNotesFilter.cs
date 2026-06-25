@@ -38,7 +38,7 @@ public sealed class SwaggerOperationNotesFilter : IOperationFilter
         {
             operation.Responses.TryAdd("403", new OpenApiResponse
             {
-                Description = "Đã đăng nhập nhưng role không đủ quyền. Dùng user1 để demo lỗi này."
+                Description = "Đã đăng nhập nhưng role không đủ quyền. Dùng user để demo lỗi này."
             });
         }
     }
@@ -75,7 +75,7 @@ public sealed class SwaggerOperationNotesFilter : IOperationFilter
         {
             return new AuthorizationInfo(
                 "Admin",
-                "Cần JWT hợp lệ có role Admin. Dùng user1 gọi endpoint này để test lỗi 403 Forbidden.",
+                "Cần JWT hợp lệ có role Admin. Dùng user gọi endpoint này để test lỗi 403 Forbidden.",
                 true,
                 true);
         }
