@@ -106,14 +106,10 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Lab2Authenticated", policy =>
-        policy.RequireAssertion(context =>
-            !IsLab2Request(context.Resource) ||
-            context.User.Identity?.IsAuthenticated == true));
+        policy.RequireAuthenticatedUser());
 
     options.AddPolicy("Lab2Admin", policy =>
-        policy.RequireAssertion(context =>
-            !IsLab2Request(context.Resource) ||
-            (context.User.Identity?.IsAuthenticated == true && context.User.IsInRole("Admin"))));
+        policy.RequireAuthenticatedUser().RequireRole("Admin"));
 });
 
 // ============================================================
@@ -230,6 +226,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
     db.Database.Migrate();
+    await EnsureDefaultUsersAsync(db);
 }
 
 // ============================================================
@@ -264,15 +261,25 @@ app.MapControllers();
 
 app.Run();
 
-static bool IsLab2Request(object? resource)
+static async Task EnsureDefaultUsersAsync(LmsDbContext db)
 {
-    if (resource is not HttpContext httpContext)
+    const string adminPasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm";
+
+    var admin = await db.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+    if (admin == null)
     {
-        return false;
+        db.Users.Add(new PRN232.LMS.Repositories.Entities.User
+        {
+            Username = "admin",
+            PasswordHash = adminPasswordHash,
+            Role = "Admin"
+        });
+    }
+    else
+    {
+        admin.PasswordHash = adminPasswordHash;
+        admin.Role = "Admin";
     }
 
-    var version = httpContext.Request.RouteValues["version"]?.ToString();
-    return string.Equals(version, "2", StringComparison.OrdinalIgnoreCase) ||
-           string.Equals(version, "2.0", StringComparison.OrdinalIgnoreCase) ||
-           string.Equals(version, "v2", StringComparison.OrdinalIgnoreCase);
+    await db.SaveChangesAsync();
 }

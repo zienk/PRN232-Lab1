@@ -56,7 +56,7 @@ namespace PRN232.LMS.Repositories.Migrations
                 columns: new[] { "UserId", "PasswordHash", "Role", "Username" },
                 values: new object[,]
                 {
-                    { 1, "$2a$12$abcdefghijklmnopqrstuuyL2cqPNhpFm4U3fhPfhbSbT5aQIs.By", "Admin", "admin" },
+                    { 1, "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm", "Admin", "admin" },
                     { 2, "$2a$12$uvwxyzabcdefghijklmnoeDciegpla8M/oYYD97NH/wSb4zDTJUi6", "User", "user1" }
                 });
 

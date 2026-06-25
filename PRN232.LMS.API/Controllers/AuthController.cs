@@ -10,7 +10,9 @@ namespace PRN232.LMS.API.Controllers;
 // Controller xử lý Authentication: login, refresh token và revoke token
 // Không cần [Authorize] vì đây là public endpoint
 [ApiController]
+[ApiVersion("1.0")]
 [ApiVersion("2.0")]
+[Route("api/auth")]
 [Route("api/v{version:apiVersion}/auth")]
 [Produces("application/json", "application/xml")] // Content Negotiation
 public class AuthController : ControllerBase
@@ -27,7 +29,7 @@ public class AuthController : ControllerBase
     /// </summary>
     /// <remarks>
     /// Tài khoản mặc định:
-    /// - Admin: username=admin, password=Admin@123
+    /// - Admin: username=admin, password=123456
     /// - User: username=user1, password=User@123
     /// </remarks>
     [HttpPost("login")]

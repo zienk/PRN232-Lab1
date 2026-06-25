@@ -74,9 +74,7 @@ public class AuthService : IAuthService
         {
             AccessToken = accessToken,
             RefreshToken = refreshTokenString,
-            ExpiresIn = expiresInMinutes * 60, // Chuyển từ phút sang giây
-            Username = user.Username,
-            Role = user.Role
+            ExpiresIn = expiresInMinutes * 60 // Chuyển từ phút sang giây
         };
 
         return ResponseModel<AuthResponseModel>.SuccessResponse(response, "Đăng nhập thành công");
@@ -131,9 +129,7 @@ public class AuthService : IAuthService
         {
             AccessToken = newAccessToken,
             RefreshToken = newRefreshTokenString,
-            ExpiresIn = expiresInMinutes * 60,
-            Username = user.Username,
-            Role = user.Role
+            ExpiresIn = expiresInMinutes * 60
         };
 
         return ResponseModel<AuthResponseModel>.SuccessResponse(response, "Làm mới token thành công");

@@ -4828,7 +4828,7 @@ namespace PRN232.LMS.Repositories.Migrations
                         new
                         {
                             UserId = 1,
-                            PasswordHash = "$2a$12$abcdefghijklmnopqrstuuyL2cqPNhpFm4U3fhPfhbSbT5aQIs.By",
+                            PasswordHash = "$2b$12$oweVO8hMbZzMq9AePdsNzu36oups06V0QSG0iHOxie3H79IT3bTfm",
                             Role = "Admin",
                             Username = "admin"
                         },
